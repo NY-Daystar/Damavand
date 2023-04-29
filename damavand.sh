@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------
 # [Title] : Damavand
 # [Description] : Handle tree files when using git clone
-# [Version] : v1.0.0
+# [Version] : v1.1.0
 # [Author] : Lucas Noga
 # [Shell] : Bash v5.1.0
 # [Usage] : ./damavand.sh https://github.com/NY-Daystar/Addams
@@ -12,19 +12,20 @@
 # ------------------------------------------------------------------
 
 PROJECT_NAME=DAMAVAND
-PROJECT_VERSION=v1.0.0
+PROJECT_VERSION=v1.1.0
 
 # Parameters to execute script
 typeset -A CONFIG=(
-    [folder]="./Repositories"   # TODO a commenter
-    [script]="./damavand"       # TODO a commenter
-    [bash_file]="./my_file.txt" # TODO a commenter
-    [update]=false              # TODO a commenter
-    [help]=false                # TODO a commenter
-    [verbose]=false             # TODO a commenter
-    [verbose_color]=light_blue  # Color to show log in verbose mode
+    [folder]="./Repositories"  # Folder location of git repositories
+    [script]="./damavand"      # Location of script project
+    [bash_file]="./bash_file"  # Location of bash file to define aliases
+    [update]=false             # Update mode to update script
+    [help]=false               # Show help if asked
+    [verbose]=false            # Debug mode
+    [verbose_color]=light_blue # Color to show log in verbose mode
 )
 
+# TODO faire un read settings
 # TODO gerer des valeurs par défauts pour
 #   - [folder]="./Repositories"
 #   - [script]="./damavand"
@@ -54,7 +55,7 @@ function main {
         log_verbose "No setup required"
     fi
 
-    ## TODO english: Maj du script
+    ## Update the script if needed
     need_update
     if [ $(check_update) -eq 1 ]; then
         log_color "Update required" "yellow"
@@ -70,7 +71,6 @@ function main {
 
 ###
 # Run clone command
-# Affiche si le fichier setup $bash_file et est configuré
 ###
 function run {
     args=("$@")
@@ -78,7 +78,8 @@ function run {
 
     # If no arguments for url repository
     if [ $# -eq 0 ] || [ $first_param = "-v" ] || [ $first_param = "--verbose" ]; then
-        log_color "No arguments to proceed" "red"
+        log_color "No arguments to proceed,\nPlease complete argument with gitlab url" "red"
+        log_color "ex: $ damavand https://github.com/LucasNoga/Dathomir" "red"
         return
     fi
 
@@ -95,10 +96,10 @@ function run {
     exit 0
 }
 
-### TODO english
-# Clonne un depot git danns un dossier spécifique
-# $1 : [string] - Chemin du dossier ou cloner le proojet
-# $2 : [string] - Url du depot git
+###
+# Clone git repository in a specific folder
+# $1 : [string] - Path to clone the project
+# $2 : [string] - URL of git repository
 ###
 function clone_project {
     folder=$1
@@ -112,13 +113,19 @@ function clone_project {
 
     # Launch git clone command
     $git_clone_command
+
+    if [ $? = 0 ]; then
+        log "Execute following command : "
+        pp=$(echo $project_path | sed 's/\\/\//g')
+        log_color "cd $pp" 'yellow'
+    fi
 }
 
-### TODO english
-# Construction du chemin absolu ou sera cloné le repository en se basant sur l'url du dépôt git
-# $1 : [string] - folder racine pour cloné le projet
-# $2 : [string] - url du dépôt
-# Return : [string] - Chemin absolu ou le projet sera cloné
+###
+# Construct absolute path to clone repository from git url
+# $1 : [string] - root folder to clone project
+# $2 : [string] - URL of git repository
+# Returns : [string] - Absolute path of clone
 ###
 function get_project_path {
     root_folder=$1
@@ -131,45 +138,55 @@ function get_project_path {
     echo $path
 }
 
-### TODO english
-# Extrait le nom du projet depuis l'url du dépot git
-# $1 : [string] - Url du dépot
-## Return : [string] - Nom du projet
+###
+# Extract name of the project
+# $1 : [string] - URL of git repository
+## Returns : [string] - Project name
 ###
 function get_project_name {
     url=$1
     sep="/"
     git_file=${url//*${sep}/}                       # Get string after last /
-    git_project=$(echo "$git_file" | cut -d'.' -f1) # remove .git at the end of file
+    git_project=$(echo "$git_file" | cut -d'.' -f1) # Remove .git at the end of file
     echo $git_project
 }
 
-### TODO english
-# Vérifie si l'installation à déjà été faite
-# Affiche si le fichier setup $bash_file et est configuré
+###
+# Check if installation is already done
+# Display if bash_file on configuration is setup or not
 ###
 function need_setup {
-    # TODO english: Vérifie si le fichier bash_profile existe
-    if [ ! -f ${CONFIG[bash_file]} ]; then
-        log_verbose "need_setup: le fichier ${CONFIG[bash_file]} n'existe pas" # TODO english
+    if [ ! -f ${CONFIG[script]} ]; then
+        log_verbose "need_setup: file ${CONFIG[script]} doesn't exist"
     else
-        log_verbose "need_setup: le fichier ${CONFIG[bash_file]} existe" # TODO english
+        log_verbose "need_setup: file ${CONFIG[script]} already exists"
+    fi
+
+    if [ ! -f ${CONFIG[bash_file]} ]; then
+        log_verbose "need_setup: file ${CONFIG[bash_file]} doesn't exist"
+    else
+        log_verbose "need_setup: file ${CONFIG[bash_file]} already exists"
     fi
 
     if [ $(match_pattern_in_file "damavand" ${CONFIG[bash_file]}) -eq 0 ]; then
-        log_verbose "need_setup: l'alias damavand n'est pas défini dans le fichier ${CONFIG[bash_file]}" # TODO english
+        log_verbose "need_setup: 'damavand' alias is not defined in the file ${CONFIG[bash_file]}"
     else
-        log_verbose "need_setup: l'alias damavand est défini dans le fichier ${CONFIG[bash_file]}" # TODO english
+        log_verbose "need_setup: 'damavand' alias is already defined in the file ${CONFIG[bash_file]}"
     fi
 }
 
-### TODO english
-# Vérifie si installation à déjà été faite
-# Verifie  si le fichier setup $bash_file existe et est configuré
-# Return : booléen 1 si l'install doit etre faite 0 sinon
+###
+# Check if installation is already done
+# Check if bash_file exists or not
+# Return : [boolean] true if install needed
 ###
 function check_setup {
     result=0
+
+    if [ ! -f ${CONFIG[script]} ]; then
+        result=1
+    fi
+
     if [ ! -f ${CONFIG[bash_file]} ]; then
         result=1
     fi
@@ -180,60 +197,54 @@ function check_setup {
     echo $result
 }
 
-### TODO english
-# TODO demander ou on souhaite l'installer
-# Installation du projet et du script avec la configuratoin
-# $1 : Path d'installation du script
+###
+# Install script to execute it with the configuration
+# $1 : [string] script path
 ###
 function setup {
-    log_color "Installation en cours" "yellow"
+    log_color "Install in progress" "yellow"
 
     # 0 - Create directory where we clone project if not exists
     mkdir -p ${CONFIG[folder]}
 
     # 1 - Création du fichier bash_profile ou bashrc s'il n'existe pas
     if [ ! -f ${CONFIG[bash_file]} ]; then
-        log_verbose "Création du fichier ${CONFIG[bash_file]}"
+        log_verbose "Creating file : ${CONFIG[bash_file]}"
         touch ${CONFIG[bash_file]}
     fi
 
     # 2 - Install script in right location
     script_location=${BASH_SOURCE[0]}
     if [ ! -f ${CONFIG[script]} ]; then
-        log_verbose "Installation du script"
+        log_verbose "Script installing"
         cp $script_location ${CONFIG[script]}
     fi
 
-    ## TODO a changer avec la fonction match_pattern
-    if ! grep --quiet "damavand" ${CONFIG[bash_file]}; then
+    if [ $(match_pattern_in_file "damavand" ${CONFIG[bash_file]}) -eq 0 ]; then
         log_verbose Add alias in ${CONFIG[bash_file]}
         echo -e "\nalias damavand=${CONFIG[script]}" >>${CONFIG[bash_file]}
         echo -e "alias git-clone=${CONFIG[script]}" >>${CONFIG[bash_file]}
         echo -e "alias gc=${CONFIG[script]}" >>${CONFIG[bash_file]}
     fi
 
-    # 3 Execute bash file
-    # TODO a activer
-    #source ${CONFIG[bash_file]}
-
-    log_color "Installation terminée" "green"
-    log_color "Quitter et relancer un git bash pour prendre en compte l'instlallation" "yellow"
+    log_color "Install done" "green"
+    log_color "Quit and relaunch your bash to integrate the script" "yellow"
 }
 
-### TODO english
-# Vérifie si le script doit être mis à jour
+###
+# Check if the script has to be update by param
 ###
 function need_update {
     if [ ${CONFIG[update]} = true ]; then
-        log_verbose "need_update: l'update du script ${CONFIG[script]} est requise" # TODO english
+        log_verbose "need_update: script update is required for file : ${CONFIG[script]}"
     else
-        log_verbose "need_update: l'update du script ${CONFIG[script]} n'est pas requise" # TODO english
+        log_verbose "need_update: script update is not required for file : ${CONFIG[script]}"
     fi
 }
 
-### TODO english
-# Vérifie si le script doit être mis à jour
-# Return : [boolean] - true si la mise à jour doit etre faite, false sinon
+###
+# Check if the script has to be update
+# Returns : [boolean] - true if update is required false otherwise
 ###
 function check_update {
     result=0
@@ -243,11 +254,15 @@ function check_update {
     echo $result
 }
 
-### TODO english
-# Vérifie si le script doit être mis à jour
-# Return : booléen 1 si la mise à jour doit etre faite 0 sinon
+###
+# Update the script
 ###
 function update {
+
+    # TODO faire un read api pour ca de gitlab
+    # TODO Connect to gitlab and download the script
+    # TODO Faire la doc
+
     log_color "Update in progress..." "yellow"
 
     script_location=${BASH_SOURCE[0]}
@@ -322,12 +337,11 @@ function get_datetime {
     log $(date '+%Y-%m-%d %H:%M:%S')
 }
 
-# TODO english
 ###
 # Match pattern
-# $1 : [string] : Pattern à rechercher
-# $2 : [string] : Fichier dans lequel rechercher la chaine
-# Returns : [boolean] : renvoie 1 si le pattern match dans le fichier, 0 sinon
+# $1 : [string] : Pattern to search
+# $2 : [string] : File path to search on its content the pattern
+# Returns : [boolean] : 1 if matched, otherwise 0
 ###
 function match_pattern_in_file {
     pattern=$1
@@ -388,9 +402,10 @@ function log_verbose {
 }
 
 ################################################################################
-# Help   TODO                                                                      #
+# Help                                                                     #
 ################################################################################
 help() {
+    # TODO
     log "Usage damavand [-v | --verbose] [--update] [<args>]..."
     log "Version $PROJECT_VERSION"
     log "Git command to clone in a specific folder"
