@@ -3,10 +3,3 @@ settings.conf
 
 # Default folder clone
 Repositories
-
-# Default file in configuration
-damavand
-bash_file
-
-TODO
-photos

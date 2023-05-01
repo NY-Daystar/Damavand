@@ -1,18 +1,13 @@
 # Damavand project
 
-TODO
 **_Version v1.0.0_**
 
-Shellescript
-TODO : Save the history of a server by creating a file history
+Shellscript project to clone repository in a default folder
 
-TODO: Developped in Bash `v5.1.0`
+Developped in Bash `v5.1.0`
 
 ## Index
 
-TODO
-
--   [Comming Next](#comming-next)
 -   [Get Started](#get-started)
 -   [Create alias](#create-a-persistant-alias)
 -   [How to use](#how-to-use)
@@ -23,85 +18,60 @@ TODO
 ## Get Started
 
 ```bash
-$ git clone https://github.com/NY-Daystar/Damavand.git
-$ cd Damavand
+git clone https://github.com/NY-Daystar/Damavand.git
+cd Damavand
 ```
 
 Then create your configuration file **settings.conf** base on the sample
 
 ```bash
-$ cp settings.sample.conf settings.conf
-$ vim settings.conf
+cp settings.sample.conf settings.conf
+vim settings.conf
 ```
 
-TODO
 Put this into the file with your server intels
 
 ```bash
-IP="XX.XX.XX.XX"
-PORT="XX"
-PASSWORD="XXXXXX"
-FOLDER_HISTORY="XXXXX"
+DAMAVAND_GIT_FOLDER="XXXXXXXX"
+DAMAVAND_DOWNLOAD_PATH="XXXXXXXX"
 ```
 
-TODO
+-   DAMAVAND_GIT_FOLDER (mandatory) : Folder path where script clone git project
+-   DAMAVAND_DOWNLOAD_PATH (mandatory) : Folder path where script updates are stored
 
--   IP (mandatory) : Ip of your server
-
-TODO
 Example
 
 ```bash
-IP="192.168.1.1"
-PORT="21"
-PASSWORD="password"
-FOLDER_HISTORY="./MyHistory" # Store files into the folder ./MyHistory
+DAMAVAND_GIT_FOLDER="~/Repositories"
+DAMAVAND_DOWNLOAD_PATH="~/Downloads"
 ```
-
-TODO
-
-## Create a persistant alias
-
-```bash
-vim ~/.bash_aliases
-```
-
-Then put this line
-
-```bash
-alias git-clone="<PATH_TO_REPO>/damavand.sh"
-alias gc=="<PATH_TO_REPO>/damavand.sh"
-```
-
-Then in your `~/.bashrc` or `~/bash_profile` execute `bash_aliases` with this
-
-```bash
-if [ -f ~/.bash_aliases ]; then
-. ~/.bash_aliases
-fi
-```
-
-TODO
 
 ## How to use
 
-If you setup the alias
+Launch the script for the first time
+It will install what it needed
 
 ```bash
-$ gc <URL_REPOSITORY
+./damavand.sh
 ```
 
-TODO mettre un example
-
-if not
+After you can use bash aliases like
 
 ```bash
-$ ./damavand.sh
+damavand
+git-clone
+gc
+```
+
+To clone a repository use this command
+
+```bash
+damavand <URL_REPOSITORY>
+# ex: damavand https://github.com/NY-Daystar/Addams
 ```
 
 ## Script options
 
-TODO
 Here's are the options on purpose  
 Show help of the script
 
@@ -112,17 +82,23 @@ $ ./damavand.sh --help
 Display debug mode
 
 ```bash
-$ ./damavand.sh -v
-$ ./damavand.sh --verbose
+./damavand.sh -v
+# ex ./damavand https://github.com/NY-Daystar/Addams --verbose
 ```
 
-TODO: Setup configuration file
+Setup configuration file
 
 ```bash
-$ ./damavand.sh --setup
+$ ./damavand.sh --setup-settings
 ```
 
-TODO: Erase trace on the server
+Show configuration file
+
+```bash
+$ ./damavand.sh --show-settings
+```
+
+Update script
 
 ```bash
 $ ./damavand.sh --update

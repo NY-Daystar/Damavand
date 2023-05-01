@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------
 # [Title] : Damavand
 # [Description] : Handle tree files when using git clone
-# [Version] : v1.1.0
+# [Version] : v1.0.0
 # [Author] : Lucas Noga
 # [Shell] : Bash v5.1.0
 # [Usage] : ./damavand.sh https://github.com/NY-Daystar/Addams
@@ -289,7 +289,7 @@ function update {
     log_color "Update in progress..." "yellow"
 
     local_file=${SETTINGS[download_path]}/damavand.sh
-    url="https://raw.githubusercontent.com/NY-Daystar/Damavand/dev2/damavand.sh"
+    url="https://raw.githubusercontent.com/NY-Daystar/Damavand/main/damavand.sh"
 
     log_verbose download_file from ${url} to ${local_file}
     download_file ${url} ${local_file}
