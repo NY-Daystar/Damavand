@@ -16,20 +16,30 @@ PROJECT_VERSION=v1.1.0
 
 # Parameters to execute script
 typeset -A CONFIG=(
-    [folder]="./Repositories"  # Folder location of git repositories
-    [script]="./damavand"      # Location of script project
-    [bash_file]="./bash_file"  # Location of bash file to define aliases
-    [update]=false             # Update mode to update script
-    [help]=false               # Show help if asked
+    [script]="$HOME/.damavand"        # Location of script project
+    [bash_file]="$HOME/.bash_profile" # Location of bash file to define aliases
+    [script_location]="."             # Get absolute path to where is the script executed
+
+    [settings_prefix]=$PROJECT_NAME # For settings.conf variable already used in the system ($USER, $PATH)
+    [settings_file]="settings.conf" # Configuration file
+
+    [setup_settings]=false # If true launch script to setup configuration file
+    [show_settings]=false  # If true launch script to show configuration file
+    [update]=false         # Update mode to update script
+    [help]=false           # Show help if asked
+
     [verbose]=false            # Debug mode
     [verbose_color]=light_blue # Color to show log in verbose mode
+
+    [default_git_folder]="./Repositories"  # Default folder location of git repositories
+    [default_download_path]="~/Downloads/" # Default folder to download script's update
 )
 
-# TODO faire un read settings
-# TODO gerer des valeurs par défauts pour
-#   - [folder]="./Repositories"
-#   - [script]="./damavand"
-#   - [bash_file]="./my_file.txt"
+# SETTING base on setting.conf file
+typeset -A SETTINGS=(
+    [git_folder]=""    # Folder location of git repositories (Default : ./Repositories)
+    [download_path]="" # # Folder to download script's update (Default : ./Download)
+)
 
 ###
 # Main body of script starts here
@@ -40,8 +50,24 @@ function main {
 
     log_color "Git clone from damavand project" "blue"
 
+    set_config "script_location" "$(dirname $0)"
+    log_verbose "Folder where script localized: $(log_color "${CONFIG[script_location]}" "yellow")"
+
+    # Read .conf file (default ./setting.conf)
+    read_settings "${CONFIG[script_location]}" "${CONFIG[settings_file]}"
+
     if [ ${CONFIG[help]} = true ]; then
         help
+        exit 0
+    fi
+
+    if [ ${CONFIG[setup_settings]} = true ]; then
+        setup_settings "${CONFIG[script_location]}/${CONFIG[settings_file]}"
+        exit 0
+    fi
+
+    if [ ${CONFIG[show_settings]} = true ]; then
+        show_settings
         exit 0
     fi
 
@@ -91,7 +117,8 @@ function run {
     log_verbose : "Arguments left : $@"
     url=$1
     echo url: $url
-    clone_project ${CONFIG[folder]} ${url}
+    echo git_foler: ${SETTINGS[git_folder]}
+    clone_project ${SETTINGS[git_folder]} ${url}
 
     exit 0
 }
@@ -102,10 +129,10 @@ function run {
 # $2 : [string] - URL of git repository
 ###
 function clone_project {
-    folder=$1
+    git_folder=$1
     url=$2
 
-    project_path=$(get_project_path ${CONFIG[folder]} ${url})
+    project_path=$(get_project_path ${git_folder} ${url})
     log_verbose "Project Path : ${project_path}"
 
     git_clone_command="git clone ${url} ${project_path}"
@@ -115,9 +142,8 @@ function clone_project {
     $git_clone_command
 
     if [ $? = 0 ]; then
-        log "Execute following command : "
         pp=$(echo $project_path | sed 's/\\/\//g')
-        log_color "cd $pp" 'yellow'
+        log "Execute following command : " $(log_color "cd $pp" "yellow")
     fi
 }
 
@@ -205,7 +231,7 @@ function setup {
     log_color "Install in progress" "yellow"
 
     # 0 - Create directory where we clone project if not exists
-    mkdir -p ${CONFIG[folder]}
+    mkdir -p ${CONFIG[git_folder]}
 
     # 1 - Création du fichier bash_profile ou bashrc s'il n'existe pas
     if [ ! -f ${CONFIG[bash_file]} ]; then
@@ -300,6 +326,14 @@ function read_args {
             log_verbose "update argument found"
             set_config "update" "true"
             ;;
+        "--show-settings")
+            log_verbose "show-settings argument found"
+            set_config "show_settings" "true"
+            ;;
+        "--setup-settings")
+            log_verbose "setup-settings argument found"
+            set_config "setup_settings" "true"
+            ;;
         *) ;;
         esac
     done
@@ -328,6 +362,228 @@ function set_config {
     CONFIG+=([$1]=$2)
 }
 
+################################################################### Settings functions ###################################################################
+
+###
+# Setup variables from settings file
+# $1 = path to the settings file (default: ./)
+# $2 = name of the settings file (default: settings.conf)
+###
+function read_settings {
+    path=$1
+    filename=$2
+    settings_file="$path/$filename"
+
+    # if we directly pass settings file
+    if [ $# -ne 2 ]; then
+        settings_file=$1
+    fi
+
+    log_verbose "Read configuration file: $settings_file"
+
+    if [ ! -f "$settings_file" ]; then
+        log_color "WARN: $settings_file doesn't exists." "yellow"
+        log "Creating the file ${CONFIG[settings_file]}..."
+        setup_settings ${CONFIG[settings_file]}
+    fi
+
+    # Load configuration file
+    . "$settings_file"
+
+    SETTINGS+=(
+        [git_folder]=$(eval echo \$${CONFIG[settings_prefix]}"_GIT_FOLDER")       # Env variable already defined in the system ($USER) so we prefix it with DAMAVAND_
+        [download_path]=$(eval echo \$${CONFIG[settings_prefix]}"_DOWNLOAD_PATH") # Env variable already defined in the system ($USER) so we prefix it with DAMAVAND_
+    )
+
+    # Check empty values
+    if [ -z ${SETTINGS[git_folder]} ]; then
+        log_color "ERROR: DAMAVAND_PATH is not defined into $settings_file" "red"
+        log_color "Get default value for DAMAVAND_PATH : ${CONFIG[default_git_folder]}" "yellow"
+        SETTINGS+=([git_folder]="${CONFIG[default_git_folder]}")
+    fi
+    if [ -z ${SETTINGS[download_path]} ]; then
+        log_color "ERROR: DAMAVAND_DOWNLOAD_PATH is not defined into $settings_file" "red"
+        log_color "Get default value for DAMAVAND_DOWNLOAD_PATH : ${CONFIG[default_download_path]}" "yellow"
+        SETTINGS+=([download_path]="${CONFIG[default_download_path]}")
+    fi
+
+    log_verbose "Configuration file $settings_file loaded"
+    log_verbose "Dump: $(declare -p SETTINGS)"
+}
+
+###
+# List settings in settings.conf file if they are defined
+# $1: path where the settings file is (default: "<script_location_path>/settings.conf")
+###
+function show_settings {
+    file=$1
+    # get default configuration file if no filled
+    if [ -z $file ]; then
+        file=${CONFIG[settings_file]}
+    fi
+
+    log "Here's your settings: "
+    log "\t- Path where repositories are cloned:" $(log_color "${SETTINGS[git_folder]}" "yellow")
+    log "\t- Download_path:" $(log_color "${SETTINGS[download_path]}" "yellow")
+}
+
+###
+# Setup the settings in command line for the user, if the file exists we erased it
+# $1: path where the settings file is (default: <script_location_path>/settings.conf")
+###
+function setup_settings {
+    file=$1
+    log "Setup settings need some intels to create your settings"
+    # get default configuration file if no filled
+    if [ -z $file ]; then
+        file=${CONFIG[settings_file]}
+    fi
+    # Check if you want to override the file
+    if [ -f $file ]; then
+        override=$(ask_yes_no "$(log_color "$file" "yellow") already exists do you want to override it")
+        if [ "$override" == false ]; then
+            log_color "Abort settings editing - no override" "red"
+            exit 0
+        fi
+    fi
+
+    # DEFAULT VALUES
+    typeset -A DEFAULT_VALUES=(
+        [GIT_FOLDER]=${CONFIG[default_git_folder]}
+        [DOWNLOAD_PATH]=${CONFIG[default_download_path]}
+    )
+
+    log_verbose "Dump: $(declare -p DEFAULT_VALUES)"
+    log_color "Actual path: $(pwd)" "magenta"
+
+    # Read value for the user
+    git_folder=$(read_data "Folder location of git repositories (default: $(log_color ${DEFAULT_VALUES[GIT_FOLDER]} yellow))" "text")
+    download_path=$(read_data "Folder to download script's update (default: $(log_color ${DEFAULT_VALUES[DOWNLOAD_PATH]} yellow))" "text")
+
+    typeset -A INPUTS+=(
+        [GIT_FOLDER]="$git_folder"
+        [DOWNLOAD_PATH]="$download_path"
+    )
+
+    # Check all the inputs
+    check_inputs DEFAULT_VALUES INPUTS
+
+    log_verbose "Dump: $(declare -p INPUTS)"
+
+    for data in "${!INPUTS[@]}"; do
+        if [ $data == "PASSWORD" ]; then
+            log_verbose "$data -> ${INPUTS[$data]}"
+        else
+            log_color "$data -> ${INPUTS[$data]}" "magenta"
+        fi
+    done
+
+    confirmation=$(ask_yes_no "$(log_color "Do you want to apply this settings ?" "yellow")")
+    if [ "$confirmation" == false ]; then
+        log_color "Abort settings editing - no confirmation data" "red"
+        exit 0
+    fi
+
+    # Write the settings
+    write_settings_file $file "$(declare -p INPUTS)"
+
+    # reload settings
+    read_settings $file
+
+    # show the new settings
+    show_settings $file
+
+    log_color "You can now restart the script" "yellow"
+    exit 0
+}
+
+###
+# Check data filled by user and process it by replacing by default value if conditions are not satisfied
+# $1 : [Assoc-Array] default values set before
+# $2 : [Assoc-Array] inputs values from user
+# return [Assoc-Array] new inputs value
+###
+function check_inputs {
+    declare -n DEFAULTS="$1" # Get Reference of variable DEFAULTS_VALUE before to not get a copie
+    declare -n DATA=$2       # Get Reference of variable INPUTS before to not get a copie
+
+    for key in "${!DATA[@]}"; do
+        val=${DATA[$key]}
+        count=${#val}
+        case $key in
+        "GIT_FOLDER" | "DOWNLOAD_PATH")
+            min_char=1
+            regex=""
+            ;;
+        "IP")
+            min_char=1
+            regex="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+            ;;
+        "PORT")
+            min_char=1
+            regex="^[0-9]{0,5}$"
+            ;;
+        "PASSWORD")
+            min_char=0
+            regex=""
+            ;;
+        *)
+            min_char=1 # Default character to check
+            regex=""
+            ;;
+        esac
+
+        # Do the check on char number
+        # if no values
+        if [ $count -eq 0 ]; then
+            log_verbose "Setting default value for $key: ${DEFAULTS[$key]}"
+            DATA+=([$key]=${DEFAULTS[$key]})
+            continue
+        # if less than expected
+        elif [ $count -lt $min_char ]; then
+            log_color "Incorrect value for $key you need $min_char characters at least. You have only $count ($val)" "red"
+            log "Setting default value for $key: ${DEFAULTS[$key]}"
+            DATA+=([$key]=${DEFAULTS[$key]})
+            continue
+        fi
+
+        # Check Regex if exists for
+        if
+            [ ! -z "$regex" ] &
+            [[ ! $val =~ $regex ]]
+        then
+            log_color "Regex not valid for $key (value: \"$val\")" "red"
+            log "Setting default value for $(log_color "$key: ${DEFAULTS[$key]}" "yellow")"
+            DATA+=([$key]=${DEFAULTS[$key]})
+        fi
+    done
+}
+
+###
+# Write the file settings the settings in command line for the user, if the file exists we erased it
+# $1: [string] path where the settings file is (default: "<script_location_path>/settings.conf")
+# $2: [array] data to insert into the setting like (ip, user of else)
+###
+function write_settings_file {
+    file=$1
+
+    eval "declare -A DATA="${2#*=} # eval string into a new associative array
+
+    # if file doesn't exist we create it
+    if [ ! -f $file ]; then
+        log_verbose "Creating $(log_color "$file" "yellow")"
+        touch $file
+        log_verbose "$(log_color "$file" "yellow") Created"
+    else
+        log_verbose "Resetting old settings in $(log_color "$file" "yellow")"
+        >$file # Resetting file
+        log_verbose "$(log_color "$file" "yellow") Reseted"
+    fi
+
+    echo "DAMAVAND_GIT_FOLDER=${DATA[GIT_FOLDER]}" >>$file
+    echo "DAMAVAND_DOWNLOAD_PATH=${DATA[DOWNLOAD_PATH]}" >>$file
+}
+
 ################################################################### Logging functions ###################################################################
 
 ###
@@ -335,6 +591,53 @@ function set_config {
 ###
 function get_datetime {
     log $(date '+%Y-%m-%d %H:%M:%S')
+}
+
+###
+# Ask yes/no question for user and return boolean
+# $1 : question to prompt for the user
+###
+function ask_yes_no {
+    message=$1
+    read -r -p "$message [y/N] : " ask
+    if [ "$ask" == 'y' ] || [ "$ask" == 'Y' ]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+###
+# Setup a read value for a user, and return it
+# $1: [string] message prompt for the user
+# $2: [string] type of data wanted (text, number, password)
+# $3: [integer] number of character wanted at least
+###
+function read_data {
+    message=$1
+    type=$2
+    min_char=$3
+
+    if [ -z $min_char ]; then min_char=0; fi
+
+    read_options=""
+    case $type in
+    "text")
+        read_options="-r"
+        ;;
+    "number")
+        read_options="-r"
+        ;;
+    "password")
+        read_options="-rs"
+        ;;
+    *) ;;
+    esac
+
+    # read command value
+    read $read_options -p "$message : " value
+
+    echo $value
 }
 
 ###
@@ -405,14 +708,16 @@ function log_verbose {
 # Help                                                                     #
 ################################################################################
 help() {
-    # TODO
-    log "Usage damavand [-v | --verbose] [--update] [<args>]..."
+    log "Usage damavand [-v | --verbose] [--update] [--show-settings] [--setup-settings] [<args>] [OPTIONS...]..."
     log "Version $PROJECT_VERSION"
     log "Git command to clone in a specific folder"
     log
     log "Syntax: archange [-v|--no-details|--setup|--history]"
-    log "CONFIG:"
-    log "\t -v, --verbose \t\t Verbose mode"
+    log "Options:"
+    log "\t --update \t\t Launch update script from github source"
+    log "\t --show-settings \t Show settings of your project"
+    log "\t --setup-settings \t Define settings of your project"
+    log "\t -v, --verbose \t\t Show verbose logs"
 }
 
 main $@
