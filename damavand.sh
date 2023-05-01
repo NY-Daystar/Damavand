@@ -35,7 +35,7 @@ typeset -A CONFIG=(
     [default_download_path]="~/Downloads/" # Default folder to download script's update
 )
 
-# SETTING base on setting.conf file
+# SETTINGS base on setting.conf file
 typeset -A SETTINGS=(
     [git_folder]=""    # Folder location of git repositories (Default : ./Repositories)
     [download_path]="" # # Folder to download script's update (Default : ./Download)
@@ -116,8 +116,10 @@ function run {
     # Clone the repository in specific directory
     log_verbose : "Arguments left : $@"
     url=$1
-    echo url: $url
-    echo git_foler: ${SETTINGS[git_folder]}
+
+    log_verbose url: $url
+    log_verbose git_foler: ${SETTINGS[git_folder]}
+
     clone_project ${SETTINGS[git_folder]} ${url}
 
     exit 0
@@ -284,18 +286,38 @@ function check_update {
 # Update the script
 ###
 function update {
-
-    # TODO faire un read api pour ca de gitlab
-    # TODO Connect to gitlab and download the script
-    # TODO Faire la doc
-
     log_color "Update in progress..." "yellow"
 
-    script_location=${BASH_SOURCE[0]}
-    log_verbose "Copiyng from ${script_location} to ${CONFIG[script]}"
-    cp $script_location ${CONFIG[script]}
+    local_file=${SETTINGS[download_path]}/damavand.sh
+    url="https://raw.githubusercontent.com/NY-Daystar/Damavand/dev2/damavand.sh"
+
+    log_verbose download_file from ${url} to ${local_file}
+    download_file ${url} ${local_file}
+
+    log_verbose "Copiyng from ${local_file} to ${CONFIG[script]}"
+    cp ${local_file} ${CONFIG[script]}
 
     log_color "Update done" "green"
+}
+
+###
+# Download file from url
+# $1 : [string] - URL of file to download
+# $2 : [string] - local file_path to store it
+###
+function download_file {
+    url_file=$1
+    local_file=$2
+
+    log_verbose "Downloading file ${url_file} into ${local_file}"
+
+    cmd="curl -s -o ${local_file} ${url_file}"
+
+    log_verbose curl command : $cmd
+
+    $cmd
+
+    log_verbose "Download successful on ${local_file}"
 }
 
 ################################################################### CONFIG functions ###################################################################
